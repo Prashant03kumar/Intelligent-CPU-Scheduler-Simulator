@@ -43,3 +43,12 @@ class FCFS:
             schedule.append((pid, completion_time))
         
         return schedule
+
+
+    # processes = [
+    #     (1, 0, 4),  
+    #     (2, 1, 3),
+    #     (3, 2, 1),
+    #     (4, 3, 5),
+    #     (5, 4, 2)
+    # # ]
