@@ -3,9 +3,9 @@ import time
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, 
                             QMainWindow, QHBoxLayout, QSpinBox, QPushButton, 
-                            QMessageBox, QTextEdit, QProgressBar)
+                            QMessageBox, QProgressBar)
 from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 
 from fcfs import FCFS
 from sjf import SJF
@@ -23,11 +23,12 @@ def calculate_waiting_time(tat, bt):
     return tat - bt
 
 class InnerWindow(QMainWindow):
-    def __init__(self, algorithm_choice, process_quantity, is_preemptive):
+    def __init__(self, algorithm_choice, process_quantity, is_preemptive,time_quantum):
         super().__init__()
         self.algorithm_choice = algorithm_choice
         self.process_quantity = process_quantity
         self.is_preemptive = is_preemptive
+        self.time_quantum=time_quantum
         self.processes = []
         self.initUI()
     
@@ -81,13 +82,12 @@ class InnerWindow(QMainWindow):
         self.cpu_Layout.addWidget(self.label)
         self.cpu_Layout.addSpacing(60)
 
-        self.cpu_label = QLabel(" P1 ")
+        self.cpu_label = QLabel(" Idle ")
         font = QFont()
         font.setPointSize(12)
         self.cpu_label.setFont(font)
-        self.cpu_label.setAlignment(Qt.AlignLeft)
-        self.cpu_label.setStyleSheet("color: white; background: black;")
         self.cpu_label.setAlignment(Qt.AlignCenter)
+        self.cpu_label.setStyleSheet("color: white; background: black;")
         self.cpu_Layout.addWidget(self.cpu_label)
         self.cpu_Layout.addStretch()
 
@@ -98,7 +98,7 @@ class InnerWindow(QMainWindow):
         self.subMainLayout1.addLayout(self.top_Layout)
         self.subMainLayout1.addStretch()
 
-        # SubMainLayout2: Process Table (Made Responsive)
+        # SubMainLayout2: Process Table
         self.subMainLayout2 = QVBoxLayout()
         self.processTableLayout = QHBoxLayout()
         self.processTableContent = QVBoxLayout()
@@ -106,17 +106,16 @@ class InnerWindow(QMainWindow):
         self.heading = QVBoxLayout()
         self.column = QHBoxLayout()
 
-        # Header with fixed widths
         headers = ["Priority", "Processes", "AT", "BT", "Status Bar", "CT", "TAT", "WT"]
         for title in headers:
             label = QLabel(title)
             font = QFont()
-            font.setPointSize(12)
+            font.setPointSize(13)
             font.setBold(True)
             label.setFont(font)
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("color: yellow; background: transparent;")
-            label.setFixedWidth(80 if title in ["Priority", "AT", "BT"] else 100)  # Adjusted widths
+            label.setFixedWidth(90 if title in ["Priority", "AT", "BT"] else 110)
             self.column.addWidget(label)
 
         self.heading.addLayout(self.column)
@@ -128,76 +127,75 @@ class InnerWindow(QMainWindow):
         for i in range(1, self.process_quantity + 1):
             process_row = QHBoxLayout()
 
-            # Priority
             priority_input = QSpinBox()
             priority_input.setRange(0, 100)
             priority_input.setValue(0)
             priority_input.setStyleSheet("color: black; background: white;")
-            priority_input.setFixedWidth(80)
+            priority_input.setFixedWidth(90)
+            priority_input.setFixedHeight(30)
+            priority_input.setFont(QFont("Arial", 13))
             priority_input.setAlignment(Qt.AlignCenter)
             process_row.addWidget(priority_input)
 
-            # Process
             process_label = QLabel(f"P{i}")
-            font = QFont("Arial", 12)
+            font = QFont("Arial", 13)
             process_label.setFont(font)
             process_label.setAlignment(Qt.AlignCenter)
             process_label.setStyleSheet("color: white; background: transparent;")
-            process_label.setFixedWidth(100)
+            process_label.setFixedWidth(110)
             process_row.addWidget(process_label)
 
-            # AT
             at_input = QSpinBox()
             at_input.setRange(0, 100)
             at_input.setValue(0)
             at_input.setStyleSheet("color: black; background: white;")
-            at_input.setFixedWidth(80)
+            at_input.setFixedWidth(90)
+            at_input.setFixedHeight(30)
+            at_input.setFont(QFont("Arial", 13))
             at_input.setAlignment(Qt.AlignCenter)
             process_row.addWidget(at_input)
 
-            # BT
             bt_input = QSpinBox()
             bt_input.setRange(1, 1000)
             bt_input.setValue(0)
             bt_input.setStyleSheet("color: black; background: white;")
-            bt_input.setFixedWidth(80)
+            bt_input.setFixedWidth(90)
+            bt_input.setFixedHeight(30)
+            bt_input.setFont(QFont("Arial", 13))
             bt_input.setAlignment(Qt.AlignCenter)
             process_row.addWidget(bt_input)
 
-            # Status Bar
             status_bar = QProgressBar()
             status_bar.setMaximum(100)
             status_bar.setValue(0)
             status_bar.setStyleSheet("QProgressBar { background-color: white; } QProgressBar::chunk { background-color: orange; }")
-            status_bar.setFixedWidth(100)
+            status_bar.setFixedWidth(110)
+            status_bar.setFixedHeight(30)
             status_bar.setAlignment(Qt.AlignCenter)
             process_row.addWidget(status_bar)
 
-            # CT
             ct_label = QLabel("0")
-            font = QFont("Arial", 12)
+            font = QFont("Arial", 13)
             ct_label.setFont(font)
             ct_label.setAlignment(Qt.AlignCenter)
             ct_label.setStyleSheet("color: white; background: transparent;")
-            ct_label.setFixedWidth(100)  # Fixed width for multi-digit stability
+            ct_label.setFixedWidth(120)
             process_row.addWidget(ct_label)
 
-            # TAT
             tat_label = QLabel("0")
-            font = QFont("Arial", 12)
+            font = QFont("Arial", 13)
             tat_label.setFont(font)
             tat_label.setAlignment(Qt.AlignCenter)
             tat_label.setStyleSheet("color: white; background: transparent;")
-            tat_label.setFixedWidth(100)  # Fixed width for multi-digit stability
+            tat_label.setFixedWidth(120)
             process_row.addWidget(tat_label)
 
-            # WT
             waiting_time_label = QLabel("0")
-            font = QFont("Arial", 12)
+            font = QFont("Arial", 13)
             waiting_time_label.setFont(font)
             waiting_time_label.setAlignment(Qt.AlignCenter)
             waiting_time_label.setStyleSheet("color: white; background: transparent;")
-            waiting_time_label.setFixedWidth(100)  # Fixed width for multi-digit stability
+            waiting_time_label.setFixedWidth(120)
             process_row.addWidget(waiting_time_label)
 
             self.content.addLayout(process_row)
@@ -208,7 +206,11 @@ class InnerWindow(QMainWindow):
                 "status_bar": status_bar,
                 "ct": ct_label,
                 "tat": tat_label,
-                "waiting_time": waiting_time_label
+                "waiting_time": waiting_time_label,
+                "remaining_bt": 0,
+                "current_ct": 0,
+                "scheduled_ct": 0,
+                "start_time": 0  # Track when the process actually starts executing
             })
 
         self.processTableContent.addLayout(self.content)
@@ -290,7 +292,7 @@ class InnerWindow(QMainWindow):
         self.readyQueueContainer.setStyleSheet("background: transparent;")
         self.readQueue_layout = QHBoxLayout(self.readyQueueContainer)
 
-        self.label = QLabel("Ready Queuee ")
+        self.label = QLabel("Ready Queue: ")
         font = QFont()
         font.setPointSize(12)
         font.setItalic(True)
@@ -328,6 +330,10 @@ class InnerWindow(QMainWindow):
         self.layout.addLayout(self.subMainLayout3)
         self.layout.addLayout(self.subMainLayout4)
 
+        # Timer for incremental updates
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_execution)
+
     def compileSimulation(self):
         self.processes = []
         for i, process in enumerate(self.processes_data):
@@ -336,32 +342,103 @@ class InnerWindow(QMainWindow):
             bt = process["bt"].value()
             priority = process["priority"].value() if self.algorithm_choice == "Priority Scheduling" else 0
             self.processes.append((pid, at, bt, priority))
+            process["remaining_bt"] = bt
+            process["current_ct"] = 0
+            process["start_time"] = 0
 
+        # Initialize scheduler
         if self.algorithm_choice == "First Come First Serve (FCFS)":
             scheduler = FCFS([(pid, at, bt) for pid, at, bt, _ in self.processes])
         elif self.algorithm_choice == "Shortest Job First (SJF)":
             scheduler = SJF([(pid, at, bt) for pid, at, bt, _ in self.processes], self.is_preemptive)
         elif self.algorithm_choice == "Round Robin (RR)":
-            time_quantum = 2
+            time_quantum = self.time_quantum
             scheduler = RoundRobin([(pid, at, bt) for pid, at, bt, _ in self.processes], time_quantum)
         elif self.algorithm_choice == "Priority Scheduling":
             scheduler = PriorityScheduling(self.processes, self.is_preemptive)
 
-        schedule = scheduler.calculate_completion_time()
-        completion_times = {pid: ctime for pid, ctime in schedule}
+        # Get completion times and execution order
+        self.schedule = scheduler.calculate_completion_time()  # List of (pid, ct)
+        for pid, ct in self.schedule:
+            self.processes_data[pid - 1]["scheduled_ct"] = ct
+        self.execution_order = sorted(self.processes, key=lambda x: self.processes_data[x[0] - 1]["scheduled_ct"])
+        self.current_process_idx = 0
+        self.current_time = 0
 
+        # Start the simulation
+        self.timer.start(100)  # Update every 0.1 seconds
+
+    def update_execution(self):
+        if self.current_process_idx >= len(self.execution_order):
+            self.timer.stop()
+            self.calculate_averages()
+            self.cpu_label.setText(" Idle ")
+            QMessageBox.information(self, "Compile", "Simulation completed!")
+            return
+
+        current_process = self.execution_order[self.current_process_idx]
+        pid, at, bt, _ = current_process
+        process_data = self.processes_data[pid - 1]
+        scheduled_ct = process_data["scheduled_ct"]
+
+        # Wait until arrival time
+        if self.current_time < at:
+            self.current_time += 1
+            return
+
+        # Determine start time (when the process begins execution)
+        if process_data["start_time"] == 0:
+            # For non-preemptive, start time is when the previous process finishes or AT if first
+            if self.current_process_idx == 0:
+                process_data["start_time"] = max(at, self.current_time)
+            else:
+                prev_pid = self.execution_order[self.current_process_idx - 1][0]
+                prev_ct = self.processes_data[prev_pid - 1]["scheduled_ct"]
+                process_data["start_time"] = max(at, prev_ct)
+        
+        # Wait until start time (handles waiting period)
+        if self.current_time < process_data["start_time"]:
+            self.current_time += 1
+            return
+
+        # Update CPU label to show current process
+        self.cpu_label.setText(f" P{pid} ")
+
+        # Increment execution until reaching scheduled CT
+        if process_data["current_ct"] < scheduled_ct:
+            process_data["current_ct"] += 1
+            process_data["remaining_bt"] -= 1
+            process_data["ct"].setText(str(process_data["current_ct"]))
+
+            # Update status bar based on progress toward scheduled_ct
+            execution_time = scheduled_ct - process_data["start_time"]  # Total time process runs
+            progress = ((process_data["current_ct"] - process_data["start_time"]) / execution_time) * 100
+            process_data["status_bar"].setValue(min(int(progress), 100))  # Cap at 100%
+
+            # Update ready queue
+            ready_queue = [f"P{p[0]}" for p in self.execution_order[self.current_process_idx + 1:] 
+                          if p[1] <= self.current_time and self.processes_data[p[0] - 1]["current_ct"] < self.processes_data[p[0] - 1]["scheduled_ct"]]
+            self.ready_queue_display.setText(" ".join(ready_queue) if ready_queue else "Empty")
+
+            self.current_time += 1
+
+        # Process completed
+        if process_data["current_ct"] == scheduled_ct:
+            tat = calculate_turnaround_time(at, scheduled_ct)
+            wt = calculate_waiting_time(tat, bt)
+            process_data["tat"].setText(str(tat))
+            process_data["waiting_time"].setText(str(wt))
+            process_data["status_bar"].setValue(100)  # Ensure 100% on completion
+            self.current_process_idx += 1
+
+    def calculate_averages(self):
         total_wt = 0
         total_tat = 0
         max_ct = 0
-        for i, (pid, at, bt, _) in enumerate(self.processes):
-            ct = completion_times[pid]
-            tat = calculate_turnaround_time(at, ct)
-            wt = calculate_waiting_time(tat, bt)
-            
-            self.processes_data[i]["ct"].setText(str(ct))
-            self.processes_data[i]["tat"].setText(str(tat))
-            self.processes_data[i]["waiting_time"].setText(str(wt))
-            
+        for process in self.processes_data:
+            ct = int(process["ct"].text())
+            tat = int(process["tat"].text())
+            wt = int(process["waiting_time"].text())
             total_wt += wt
             total_tat += tat
             max_ct = max(max_ct, ct)
@@ -371,8 +448,6 @@ class InnerWindow(QMainWindow):
         self.avgWtTime.setText(f"{avg_wt:.2f}")
         self.avgTaTime.setText(f"{avg_tat:.2f}")
         self.totalExecTime.setText(str(max_ct))
-
-        QMessageBox.information(self, "Compile", "Simulation completed!")
 
 class CPUScheduler(QMainWindow):
     def __init__(self):
@@ -476,6 +551,7 @@ class CPUScheduler(QMainWindow):
         self.top_layout.addWidget(self.fixed_container, alignment=Qt.AlignHCenter)
 
         self.additional_layout = None
+        self.time_quantum_layout = None  # New attribute for Round Robin
 
         self.bottom_layout = QVBoxLayout()
         self.start_btn = QPushButton("Start")
@@ -495,6 +571,8 @@ class CPUScheduler(QMainWindow):
 
     def updateUI(self):
         selected_text = self.comboBox.currentText()
+
+        # Clean up existing additional_layout (for SJF/Priority)
         if self.additional_layout:
             while self.additional_layout.count():
                 item = self.additional_layout.takeAt(0)
@@ -505,11 +583,24 @@ class CPUScheduler(QMainWindow):
             del self.additional_layout
             self.additional_layout = None
 
+        # Clean up existing time_quantum_layout (for Round Robin)
+        if hasattr(self, 'time_quantum_layout') and self.time_quantum_layout:
+            while self.time_quantum_layout.count():
+                item = self.time_quantum_layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+            self.fixed_container_layout.removeItem(self.time_quantum_layout)
+            del self.time_quantum_layout
+            self.time_quantum_layout = None
+
+        # Clean up any remaining QVBoxLayout items (e.g., extra_spacing)
         for i in range(self.fixed_container_layout.count()):
             item = self.fixed_container_layout.itemAt(i)
             if isinstance(item, QVBoxLayout):
                 self.fixed_container_layout.removeItem(item)
 
+        # Add "Type" field for SJF or Priority Scheduling
         if selected_text in ["Shortest Job First (SJF)", "Priority Scheduling"]:
             self.extra_spacing = QVBoxLayout()
             self.extra_spacing.addSpacing(20)
@@ -536,14 +627,44 @@ class CPUScheduler(QMainWindow):
             self.fixed_container_layout.addLayout(self.additional_layout)
             self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
 
+        # Add "Time Quantum" field for Round Robin with increased width
+        if selected_text == "Round Robin (RR)":
+            self.extra_spacing = QVBoxLayout()
+            self.extra_spacing.addSpacing(20)
+            self.fixed_container_layout.addLayout(self.extra_spacing)
+
+            self.time_quantum_layout = QHBoxLayout()
+            self.timeQuantumLabel = QLabel("Time Quantum:")
+            font4 = QFont()
+            font4.setPointSize(15)
+            font4.setBold(True)
+            self.timeQuantumLabel.setFont(font4)
+            self.timeQuantumLabel.setStyleSheet("color: white; background: transparent;")
+            self.timeQuantumLabel.setFixedWidth(200)  # Increased from 140 to 180
+            self.time_quantum_layout.addWidget(self.timeQuantumLabel)
+            self.time_quantum_layout.addSpacing(10)
+
+            self.timeQuantumSpinBox = QSpinBox()
+            self.timeQuantumSpinBox.setFixedSize(100, 35)
+            self.timeQuantumSpinBox.setRange(1, 10)
+            self.timeQuantumSpinBox.setValue(2)
+            self.timeQuantumSpinBox.setStyleSheet("color: black;")
+            font = QFont("Arial", 10)
+            self.timeQuantumSpinBox.setFont(font)
+            self.time_quantum_layout.addWidget(self.timeQuantumSpinBox)
+
+            self.fixed_container_layout.addLayout(self.time_quantum_layout)
+            self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
+
     def startSimulation(self):
         selected_algorithm = self.comboBox.currentText()
         process_quantity = self.quantitySpinBox.value()
         is_preemptive = self.newComboBox.currentText() == "Preemptive" if self.additional_layout else False
-        self.inner_window = InnerWindow(selected_algorithm, process_quantity, is_preemptive)
+        # By using hasattr, we avoid this error and provide a fallback value (2) when the attribute is missing.
+        time_quantum = self.timeQuantumSpinBox.value() if hasattr(self, 'timeQuantumSpinBox') else 2
+        self.inner_window = InnerWindow(selected_algorithm, process_quantity, is_preemptive, time_quantum)
         self.inner_window.show()
         self.close()
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CPUScheduler()
