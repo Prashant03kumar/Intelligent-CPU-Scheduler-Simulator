@@ -220,9 +220,32 @@ class InnerWindow(QMainWindow):
         # SubMainLayout3: Average Times
         self.subMainLayout3 = QVBoxLayout()
         self.averageContainer = QWidget()
-        self.averageContainer.setFixedHeight(100)
+        self.averageContainer.setFixedHeight(135)
         self.averageContainer.setStyleSheet("background: transparent;")
         self.average_layout = QVBoxLayout(self.averageContainer)
+
+        if self.algorithm_choice == "Round Robin (RR)":
+
+            self.timeQuantum_layout=QHBoxLayout()
+            self.timeQuantum_label = QLabel("Time Quantum: ")
+            font = QFont()
+            font.setPointSize(12)
+            font.setBold(True)
+            self.timeQuantum_label.setFont(font)
+            self.timeQuantum_label.setAlignment(Qt.AlignLeft)
+            self.timeQuantum_label.setStyleSheet("color: yellow; background: transparent;")
+            self.timeQuantum_layout.addWidget(self.timeQuantum_label)
+            self.timeQuantum_layout
+
+            self.timeQuantum_value = QLabel(str(self.time_quantum) if self.algorithm_choice == "Round Robin (RR)" else "N/A")
+            font = QFont("Arial", 12)
+            self.timeQuantum_value.setFont(font)
+            self.timeQuantum_value.setAlignment(Qt.AlignLeft)
+            self.timeQuantum_value.setStyleSheet("color: white; background: transparent;")
+            self.timeQuantum_layout.addWidget(self.timeQuantum_value)
+            self.timeQuantum_layout.addStretch()
+
+            self.average_layout.addLayout(self.timeQuantum_layout)
 
         self.waitingTime_layout = QHBoxLayout()
         self.label = QLabel("Average Waiting Time: ")
