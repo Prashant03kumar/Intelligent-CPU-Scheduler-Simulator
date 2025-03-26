@@ -427,7 +427,6 @@ class InnerWindow(QMainWindow):
             scheduler = PriorityScheduling(self.processes, self.is_preemptive)
 
         self.timeline = scheduler.calculate_completion_time()
-        print(f"Timeline: {self.timeline}")
 
         self.all_processes = sorted(set(pid for pid, _, _ in self.timeline))
 
