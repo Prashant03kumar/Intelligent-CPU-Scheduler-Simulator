@@ -1,5 +1,4 @@
 import os
-import time
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, 
                             QMainWindow, QHBoxLayout, QSpinBox, QPushButton, 
@@ -26,7 +25,7 @@ class GanttChart(QWidget):
     def __init__(self, timeline, processes, max_time):
         super().__init__()
         self.timeline = timeline
-        self.processes = processes
+        self.processes = processes 
         self.max_time = max_time
         self.setMinimumSize(600, 100)
 
@@ -38,10 +37,12 @@ class GanttChart(QWidget):
         row_height = height // max(1, len(self.processes))
         time_scale = width / max(1, self.max_time)
 
-        painter.fillRect(self.rect(), QColor(255, 255, 255))  # White background
+        painter.fillRect(self.rect(), QColor(255, 255, 255))
 
-        colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255), QColor(255, 255, 100), QColor(255, 100, 255)]
-        
+        colors = [QColor(255, 100, 100), QColor(100, 255, 100), 
+                 QColor(100, 100, 255), QColor(255, 255, 100), 
+                 QColor(255, 100, 255)]
+
         if self.timeline:
             for pid, start, end in self.timeline:
                 row = self.processes.index(pid)
@@ -50,7 +51,7 @@ class GanttChart(QWidget):
                 x_width = (end - start) * time_scale
                 color = colors[row % len(colors)]
                 painter.fillRect(int(x_start), y, int(x_width), row_height - 5, color)
-                painter.drawText(int(x_start) + 5, y + row_height // 2, str(pid))
+                painter.drawText(int(x_start) + 5, y + row_height // 2, f"P{pid}")
 
         for t in range(self.max_time + 1):
             x = t * time_scale
@@ -94,6 +95,9 @@ class InnerWindow(QMainWindow):
         self.label.setStyleSheet("color: yellow; background: transparent;")
         self.algo_Layout.addWidget(self.label)
 
+        if self.algorithm_choice == "Round Robin (RR)":
+            self.is_preemptive = True
+
         algo_text = f"{self.algorithm_choice}{' (Preemptive)' if self.is_preemptive else ' (Non-Preemptive)'}"
         self.algo_label = QLabel(algo_text)
         font = QFont()
@@ -101,7 +105,6 @@ class InnerWindow(QMainWindow):
         self.algo_label.setFont(font)
         self.algo_label.setAlignment(Qt.AlignLeft)
         self.algo_label.setStyleSheet("color: white; background: black;")
-        self.algo_label.setAlignment(Qt.AlignCenter)
         self.algo_Layout.addWidget(self.algo_label)
         self.algo_Layout.addStretch()
 
@@ -242,9 +245,8 @@ class InnerWindow(QMainWindow):
                 "waiting_time": waiting_time_label,
                 "remaining_bt": 0,
                 "current_ct": 0,
-                "start_time": 0,
                 "slices": [],
-                "completed": False  # Track if the process has fully completed
+                "completed": False
             })
 
         self.processTableContent.addLayout(self.content)
@@ -285,7 +287,7 @@ class InnerWindow(QMainWindow):
             font = QFont("Arial", 12)
             self.timeQuantum_value.setFont(font)
             self.timeQuantum_value.setAlignment(Qt.AlignLeft)
-            self.timeQuantum_value.setStyleSheet("color: white; background: transparent;")
+            self.timeQuantum_value.setStyleSheet("color: white; background: black;")
             self.timeQuantum_layout.addWidget(self.timeQuantum_value)
             self.timeQuantum_layout.addStretch()
 
@@ -369,8 +371,7 @@ class InnerWindow(QMainWindow):
         self.readQueue_layout.addWidget(self.label)
         self.readQueue_layout.addSpacing(20)
 
-        ready_queue_text = " ".join([f"P{i}" for i in range(2, self.process_quantity + 1)])
-        self.ready_queue_display = QLabel(ready_queue_text if ready_queue_text else "Empty")
+        self.ready_queue_display = QLabel("Empty")
         font = QFont("Arial", 12)
         self.ready_queue_display.setFont(font)
         self.ready_queue_display.setAlignment(Qt.AlignLeft)
@@ -410,9 +411,7 @@ class InnerWindow(QMainWindow):
             self.processes.append((pid, at, bt, priority))
             process["remaining_bt"] = bt
             process["current_ct"] = 0
-            process["start_time"] = 0
             process["completed"] = False
-            # Initialize CT, TAT, WT labels
             process["ct"].setText("0")
             process["tat"].setText("0")
             process["waiting_time"].setText("0")
@@ -441,23 +440,27 @@ class InnerWindow(QMainWindow):
 
         self.gantt_widget.processes = self.all_processes
         self.gantt_widget.timeline = self.current_timeline
-        self.gantt_widget.max_time = self.current_time + 1
+        self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
 
-        self.timer.start(100)
+        self.timer.start(1000)  # 1 second interval for visibility
 
     def update_execution(self):
-        if self.current_time > self.max_time:
+        if self.current_time >= self.max_time:
             self.timer.stop()
             self.calculate_averages()
             self.cpu_label.setText(" Idle ")
+            self.ready_queue_display.setText("Empty")
             QMessageBox.information(self, "Compile", "Simulation completed!")
             return
 
+        # Find currently executing process
         current_pid = None
+        current_slice = None
         for pid, start, end in self.timeline:
             if start <= self.current_time < end:
                 current_pid = pid
+                current_slice = (pid, start, end)
                 break
 
         if current_pid is not None:
@@ -465,55 +468,53 @@ class InnerWindow(QMainWindow):
         else:
             self.cpu_label.setText(" Idle ")
 
+        # Update ready queue
         ready_queue = []
         for i, process in enumerate(self.processes_data):
             pid = i + 1
             at = process["at"].value()
-            if at <= self.current_time and not process["completed"]:
-                if pid != current_pid:
-                    ready_queue.append(f"P{pid}")
-        self.ready_queue_display.setText(" ".join(ready_queue) if ready_queue else "Empty")
+            bt = process["bt"].value()
+            executed_time = sum(end - start for start, end in process["slices"] if end <= self.current_time + 1)
+            remaining_time = bt - executed_time
+            if at <= self.current_time and not process["completed"] and pid != current_pid and remaining_time > 0:
+                ready_queue.append((pid, at))
 
-        # Debug: Print CPU and Ready Queue state
+        ready_queue.sort(key=lambda x: x[1])  # Sort by arrival time
+        self.ready_queue_display.setText(" ".join([f"P{pid}" for pid, _ in ready_queue]) if ready_queue else "Empty")
+
         print(f"Time {self.current_time}: CPU={self.cpu_label.text().strip()}, Ready Queue={self.ready_queue_display.text()}")
 
-        # Update Status Bar and CT dynamically
+        # Update status bar and CT for all processes simultaneously
         for i, process in enumerate(self.processes_data):
             pid = i + 1
             if process["completed"]:
-                continue  # Skip if process is already completed
+                continue
 
-            slices = process["slices"]
             total_bt = process["bt"].value()
-            executed_time = 0
-
-            for start, end in slices:
-                if end <= self.current_time:
-                    executed_time += end - start
-                elif start <= self.current_time < end:
-                    executed_time += self.current_time - start
-
-            # Update current executed time
-            process["current_ct"] = executed_time
-
-            # Update Status Bar
+            executed_time = sum(end - start for start, end in process["slices"] if end <= self.current_time + 1)
             progress = (executed_time / total_bt) * 100 if total_bt > 0 else 0
             process["status_bar"].setValue(min(int(progress), 100))
+            process["current_ct"] = executed_time
 
-            # Update CT dynamically (show current executed time)
-            process["ct"].setText(str(int(executed_time)))
+            # Update CT in real-time
+            if executed_time > 0:
+                current_ct = max(end for start, end in process["slices"] if end <= self.current_time + 1)
+                process["ct"].setText(str(current_ct))
 
-            # Check if process is completed
-            if executed_time >= total_bt:
+            # If process completes (status bar reaches 100%)
+            if executed_time >= total_bt and not process["completed"]:
                 process["completed"] = True
-                # Set final CT as the end time of the last slice
                 final_ct = max(end for _, end in process["slices"])
                 process["ct"].setText(str(final_ct))
-                print(f"P{pid} completed at time {self.current_time}, Final CT={final_ct}")
+                tat = calculate_turnaround_time(process["at"].value(), final_ct)
+                wt = calculate_waiting_time(tat, total_bt)
+                process["tat"].setText(str(tat))
+                process["waiting_time"].setText(str(wt))
+                print(f"P{pid} completed at time {self.current_time}: CT={final_ct}, TAT={tat}, WT={wt}")
 
-        self.current_timeline = [(pid, start, end) for pid, start, end in self.timeline if start <= self.current_time]
+        self.current_timeline = [(pid, start, end) for pid, start, end in self.timeline if start <= self.current_time + 1]
         self.gantt_widget.timeline = self.current_timeline
-        self.gantt_widget.max_time = self.current_time + 1
+        self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
 
         self.current_time += 1
@@ -528,32 +529,16 @@ class InnerWindow(QMainWindow):
                 print(f"Warning: P{pid} did not complete!")
                 continue
 
-            # Final CT is already set in update_execution
             final_ct = int(process["ct"].text())
-            at = process["at"].value()
-            bt = process["bt"].value()
-            tat = calculate_turnaround_time(at, final_ct)
-            wt = calculate_waiting_time(tat, bt)
-
-            # Update TAT and WT labels
-            process["tat"].setText(str(tat))
-            process["waiting_time"].setText(str(wt))
-
-            total_wt += wt
-            total_tat += tat
+            total_wt += int(process["waiting_time"].text())
+            total_tat += int(process["tat"].text())
             max_ct = max(max_ct, final_ct)
 
-            print(f"P{pid}: Final CT={final_ct}, TAT={tat}, WT={wt}")
-
-        avg_wt = total_wt / self.process_quantity
-        avg_tat = total_tat / self.process_quantity
+        avg_wt = total_wt / self.process_quantity if self.process_quantity > 0 else 0
+        avg_tat = total_tat / self.process_quantity if self.process_quantity > 0 else 0
         self.avgWtTime.setText(f"{avg_wt:.2f}")
         self.avgTaTime.setText(f"{avg_tat:.2f}")
         self.totalExecTime.setText(str(max_ct))
-
-        self.gantt_widget.timeline = self.timeline
-        self.gantt_widget.max_time = max_ct
-        self.gantt_widget.update()
 
 class CPUScheduler(QMainWindow):
     def __init__(self):
@@ -697,11 +682,6 @@ class CPUScheduler(QMainWindow):
             self.fixed_container_layout.removeItem(self.time_quantum_layout)
             del self.time_quantum_layout
             self.time_quantum_layout = None
-
-        for i in range(self.fixed_container_layout.count()):
-            item = self.fixed_container_layout.itemAt(i)
-            if isinstance(item, QVBoxLayout):
-                self.fixed_container_layout.removeItem(item)
 
         if selected_text in ["Shortest Job First (SJF)", "Priority Scheduling"]:
             self.extra_spacing = QVBoxLayout()
