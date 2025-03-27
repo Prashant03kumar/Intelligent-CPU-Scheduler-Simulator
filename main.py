@@ -1,4 +1,3 @@
-import os
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, 
                             QMainWindow, QHBoxLayout, QSpinBox, QPushButton, 
@@ -12,9 +11,6 @@ from roundRobin import RoundRobin
 from priorityScheduling import PriorityScheduling
 
 # Backend functions
-def clear_terminal():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
 def calculate_turnaround_time(at, ct):
     return ct - at
 
@@ -27,7 +23,7 @@ class GanttChart(QWidget):
         self.timeline = timeline
         self.processes = processes 
         self.max_time = max_time
-        self.setMinimumSize(600, 100)
+        self.setMinimumSize(600, 120)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -69,20 +65,47 @@ class InnerWindow(QMainWindow):
         self.initUI()
     
     def initUI(self):
+        self.setup_window_basics()
+        self.layout = QVBoxLayout(self.centralWidget)
+
+        self.subMainLayout1 = QVBoxLayout()
+        self.setup_top_section()
+        self.subMainLayout1.addStretch()
+
+        self.subMainLayout2 = QVBoxLayout()
+        self.setup_process_table()
+
+        self.subMainLayout2_5 = QVBoxLayout()
+        self.setup_gantt_chart()
+
+        self.subMainLayout3 = QVBoxLayout()
+        self.setup_averages_section()
+
+        self.subMainLayout4 = QHBoxLayout()
+        self.setup_ready_queue_and_buttons()
+
+        self.layout.addLayout(self.subMainLayout1)
+        self.layout.addLayout(self.subMainLayout2)
+        self.layout.addLayout(self.subMainLayout2_5)
+        self.layout.addStretch()
+        self.layout.addLayout(self.subMainLayout3)
+        self.layout.addLayout(self.subMainLayout4)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_execution)
+
+    def setup_window_basics(self):
         self.setWindowTitle("Algorithm Execution")
         self.setGeometry(100, 100, 900, 700)
         self.centralWidget = QWidget(self)
-        self.setCentralWidget(self.centralWidget) 
-        
+        self.setCentralWidget(self.centralWidget)
         self.centralWidget.setStyleSheet("""
             background-image: url('src/photo.jpeg');
             background-repeat: no-repeat;
             background-position: center;
         """)
 
-        self.layout = QVBoxLayout(self.centralWidget)
-
-        self.subMainLayout1 = QVBoxLayout()
+    def setup_top_section(self):
         self.top_Layout = QVBoxLayout()
 
         self.algo_Layout = QHBoxLayout()
@@ -131,11 +154,9 @@ class InnerWindow(QMainWindow):
         self.top_Layout.addLayout(self.algo_Layout)
         self.top_Layout.addLayout(self.cpu_Layout)
         self.top_Layout.addStretch()
-
         self.subMainLayout1.addLayout(self.top_Layout)
-        self.subMainLayout1.addStretch()
 
-        self.subMainLayout2 = QVBoxLayout()
+    def setup_process_table(self):
         self.processTableLayout = QHBoxLayout()
         self.processTableContent = QVBoxLayout()
 
@@ -161,99 +182,104 @@ class InnerWindow(QMainWindow):
         self.processes_data = []
 
         for i in range(1, self.process_quantity + 1):
-            process_row = QHBoxLayout()
-
-            priority_input = QSpinBox()
-            priority_input.setRange(0, 100)
-            priority_input.setValue(0)
-            priority_input.setStyleSheet("color: black; background: white;")
-            priority_input.setFixedWidth(90)
-            priority_input.setFixedHeight(30)
-            priority_input.setFont(QFont("Arial", 13))
-            priority_input.setAlignment(Qt.AlignCenter)
-            process_row.addWidget(priority_input)
-
-            process_label = QLabel(f"P{i}")
-            font = QFont("Arial", 13)
-            process_label.setFont(font)
-            process_label.setAlignment(Qt.AlignCenter)
-            process_label.setStyleSheet("color: white; background: transparent;")
-            process_label.setFixedWidth(110)
-            process_row.addWidget(process_label)
-
-            at_input = QSpinBox()
-            at_input.setRange(0, 100)
-            at_input.setValue(0)
-            at_input.setStyleSheet("color: black; background: white;")
-            at_input.setFixedWidth(90)
-            at_input.setFixedHeight(30)
-            at_input.setFont(QFont("Arial", 13))
-            at_input.setAlignment(Qt.AlignCenter)
-            process_row.addWidget(at_input)
-
-            bt_input = QSpinBox()
-            bt_input.setRange(1, 1000)
-            bt_input.setValue(0)
-            bt_input.setStyleSheet("color: black; background: white;")
-            bt_input.setFixedWidth(90)
-            bt_input.setFixedHeight(30)
-            bt_input.setFont(QFont("Arial", 13))
-            bt_input.setAlignment(Qt.AlignCenter)
-            process_row.addWidget(bt_input)
-
-            status_bar = QProgressBar()
-            status_bar.setMaximum(100)
-            status_bar.setValue(0)
-            status_bar.setStyleSheet("QProgressBar { background-color: white; } QProgressBar::chunk { background-color: orange; }")
-            status_bar.setFixedWidth(110)
-            status_bar.setFixedHeight(30)
-            status_bar.setAlignment(Qt.AlignCenter)
-            process_row.addWidget(status_bar)
-
-            ct_label = QLabel("0")
-            font = QFont("Arial", 13)
-            ct_label.setFont(font)
-            ct_label.setAlignment(Qt.AlignCenter)
-            ct_label.setStyleSheet("color: white; background: transparent;")
-            ct_label.setFixedWidth(120)
-            process_row.addWidget(ct_label)
-
-            tat_label = QLabel("0")
-            font = QFont("Arial", 13)
-            tat_label.setFont(font)
-            tat_label.setAlignment(Qt.AlignCenter)
-            tat_label.setStyleSheet("color: white; background: transparent;")
-            tat_label.setFixedWidth(120)
-            process_row.addWidget(tat_label)
-
-            waiting_time_label = QLabel("0")
-            font = QFont("Arial", 13)
-            waiting_time_label.setFont(font)
-            waiting_time_label.setAlignment(Qt.AlignCenter)
-            waiting_time_label.setStyleSheet("color: white; background: transparent;")
-            waiting_time_label.setFixedWidth(120)
-            process_row.addWidget(waiting_time_label)
-
+            process_row = self.create_process_row(i)
             self.content.addLayout(process_row)
-            self.processes_data.append({
-                "priority": priority_input,
-                "at": at_input,
-                "bt": bt_input,
-                "status_bar": status_bar,
-                "ct": ct_label,
-                "tat": tat_label,
-                "waiting_time": waiting_time_label,
-                "remaining_bt": 0,
-                "current_ct": 0,
-                "slices": [],
-                "completed": False
-            })
 
         self.processTableContent.addLayout(self.content)
         self.processTableLayout.addLayout(self.processTableContent)
         self.subMainLayout2.addLayout(self.processTableLayout)
 
-        self.subMainLayout2_5 = QVBoxLayout()
+    def create_process_row(self, i):
+        process_row = QHBoxLayout()
+
+        priority_input = QSpinBox()
+        priority_input.setRange(0, 100)
+        priority_input.setValue(0)
+        priority_input.setStyleSheet("color: black; background: white;")
+        priority_input.setFixedWidth(90)
+        priority_input.setFixedHeight(30)
+        priority_input.setFont(QFont("Arial", 13))
+        priority_input.setAlignment(Qt.AlignCenter)
+        process_row.addWidget(priority_input)
+
+        process_label = QLabel(f"P{i}")
+        font = QFont("Arial", 13)
+        process_label.setFont(font)
+        process_label.setAlignment(Qt.AlignCenter)
+        process_label.setStyleSheet("color: white; background: transparent;")
+        process_label.setFixedWidth(110)
+        process_row.addWidget(process_label)
+
+        at_input = QSpinBox()
+        at_input.setRange(0, 100)
+        at_input.setValue(0)
+        at_input.setStyleSheet("color: black; background: white;")
+        at_input.setFixedWidth(90)
+        at_input.setFixedHeight(30)
+        at_input.setFont(QFont("Arial", 13))
+        at_input.setAlignment(Qt.AlignCenter)
+        process_row.addWidget(at_input)
+
+        bt_input = QSpinBox()
+        bt_input.setRange(1, 1000)
+        bt_input.setValue(0)
+        bt_input.setStyleSheet("color: black; background: white;")
+        bt_input.setFixedWidth(90)
+        bt_input.setFixedHeight(30)
+        bt_input.setFont(QFont("Arial", 13))
+        at_input.setAlignment(Qt.AlignCenter)
+        process_row.addWidget(bt_input)
+
+        status_bar = QProgressBar()
+        status_bar.setMaximum(100)
+        status_bar.setValue(0)
+        status_bar.setStyleSheet("QProgressBar { background-color: white; } QProgressBar::chunk { background-color: orange; }")
+        status_bar.setFixedWidth(110)
+        status_bar.setFixedHeight(30)
+        status_bar.setAlignment(Qt.AlignCenter)
+        process_row.addWidget(status_bar)
+
+        ct_label = QLabel("0")
+        font = QFont("Arial", 13)
+        ct_label.setFont(font)
+        ct_label.setAlignment(Qt.AlignCenter)
+        ct_label.setStyleSheet("color: white; background: transparent;")
+        ct_label.setFixedWidth(120)
+        process_row.addWidget(ct_label)
+
+        tat_label = QLabel("0")
+        font = QFont("Arial", 13)
+        tat_label.setFont(font)
+        tat_label.setAlignment(Qt.AlignCenter)
+        tat_label.setStyleSheet("color: white; background: transparent;")
+        tat_label.setFixedWidth(120)
+        process_row.addWidget(tat_label)
+
+        waiting_time_label = QLabel("0")
+        font = QFont("Arial", 13)
+        waiting_time_label.setFont(font)
+        waiting_time_label.setAlignment(Qt.AlignCenter)
+        waiting_time_label.setStyleSheet("color: white; background: transparent;")
+        waiting_time_label.setFixedWidth(120)
+        process_row.addWidget(waiting_time_label)
+
+        self.processes_data.append({
+            "priority": priority_input,
+            "at": at_input,
+            "bt": bt_input,
+            "status_bar": status_bar,
+            "ct": ct_label,
+            "tat": tat_label,
+            "waiting_time": waiting_time_label,
+            "remaining_bt": 0,
+            "current_ct": 0,
+            "slices": [],
+            "completed": False
+        })
+
+        return process_row
+
+    def setup_gantt_chart(self):
         self.gantt_label = QLabel("Gantt Chart:")
         font = QFont()
         font.setPointSize(12)
@@ -266,7 +292,7 @@ class InnerWindow(QMainWindow):
         self.gantt_widget = GanttChart([], [], 0)
         self.subMainLayout2_5.addWidget(self.gantt_widget)
 
-        self.subMainLayout3 = QVBoxLayout()
+    def setup_averages_section(self):
         self.averageContainer = QWidget()
         self.averageContainer.setFixedHeight(135)
         self.averageContainer.setStyleSheet("background: transparent;")
@@ -354,7 +380,22 @@ class InnerWindow(QMainWindow):
         self.average_layout.addLayout(self.totalExecutionTime_layout)
         self.subMainLayout3.addWidget(self.averageContainer, alignment=Qt.AlignLeft)
 
-        self.subMainLayout4 = QHBoxLayout()
+    def create_styled_button(self, text, slot):
+        """Helper method to create a styled QPushButton."""
+        button = QPushButton(text)
+        button.setFixedSize(100, 35)
+        font = QFont("Arial", 10)
+        font.setBold(True)
+        button.setFont(font)
+        button.setStyleSheet("color: black; background: white;")
+        button.clicked.connect(slot)
+        return button
+
+    def exit_application(self):
+        """Slot to exit the application."""
+        QApplication.quit()
+
+    def setup_ready_queue_and_buttons(self):
         self.readyQueueContainer = QWidget()
         self.readyQueueContainer.setFixedHeight(60)
         self.readyQueueContainer.setStyleSheet("background: transparent;")
@@ -382,26 +423,33 @@ class InnerWindow(QMainWindow):
         self.subMainLayout4.addWidget(self.readyQueueContainer)
         self.subMainLayout4.addStretch()
 
-        self.compile_btn = QPushButton("Compile")
-        self.compile_btn.setFixedSize(100, 35)
-        font = QFont("Arial", 10)
-        font.setBold(True)
-        self.compile_btn.setFont(font)
-        self.compile_btn.setStyleSheet("color: black; background: white;")
-        self.compile_btn.clicked.connect(self.compileSimulation)
+        self.compile_btn = self.create_styled_button("Compile", self.compileSimulation)
         self.subMainLayout4.addWidget(self.compile_btn)
 
-        self.layout.addLayout(self.subMainLayout1)
-        self.layout.addLayout(self.subMainLayout2)
-        self.layout.addLayout(self.subMainLayout2_5)
-        self.layout.addStretch()
-        self.layout.addLayout(self.subMainLayout3)
-        self.layout.addLayout(self.subMainLayout4)
+        self.home_btn = self.create_styled_button("Home", self.return_to_main)
+        self.subMainLayout4.addWidget(self.home_btn)
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_execution)
+        self.exit_btn = self.create_styled_button("Exit", self.exit_application)
+        self.subMainLayout4.addWidget(self.exit_btn)
 
-    def compileSimulation(self):
+    def return_to_main(self):
+        """Return to the main CPUScheduler window and close the current window."""
+        self.main_window = CPUScheduler()
+        self.main_window.show()
+        self.close()
+
+    def get_scheduler(self):
+        """Return the appropriate scheduler based on the algorithm choice."""
+        schedulers = {
+            "First Come First Serve (FCFS)": lambda: FCFS([(pid, at, bt) for pid, at, bt, _ in self.processes]),
+            "Shortest Job First (SJF)": lambda: SJF([(pid, at, bt) for pid, at, bt, _ in self.processes], self.is_preemptive),
+            "Round Robin (RR)": lambda: RoundRobin([(pid, at, bt) for pid, at, bt, _ in self.processes], self.time_quantum),
+            "Priority Scheduling": lambda: PriorityScheduling(self.processes, self.is_preemptive)
+        }
+        return schedulers[self.algorithm_choice]()
+
+    def initialize_processes(self):
+        """Initialize the processes list and reset process data."""
         self.processes = []
         for i, process in enumerate(self.processes_data):
             pid = i + 1
@@ -417,19 +465,9 @@ class InnerWindow(QMainWindow):
             process["waiting_time"].setText("0")
             print(f"Process P{pid}: AT={at}, BT={bt}, Priority={priority}")
 
-        if self.algorithm_choice == "First Come First Serve (FCFS)":
-            scheduler = FCFS([(pid, at, bt) for pid, at, bt, _ in self.processes])
-        elif self.algorithm_choice == "Shortest Job First (SJF)":
-            scheduler = SJF([(pid, at, bt) for pid, at, bt, _ in self.processes], self.is_preemptive)
-        elif self.algorithm_choice == "Round Robin (RR)":
-            scheduler = RoundRobin([(pid, at, bt) for pid, at, bt, _ in self.processes], self.time_quantum)
-        elif self.algorithm_choice == "Priority Scheduling":
-            scheduler = PriorityScheduling(self.processes, self.is_preemptive)
-
-        self.timeline = scheduler.calculate_completion_time()
-
+    def update_timeline_and_gantt(self):
+        """Update the timeline and Gantt chart after scheduling."""
         self.all_processes = sorted(set(pid for pid, _, _ in self.timeline))
-
         for pid, start, end in self.timeline:
             self.processes_data[pid - 1]["slices"].append((start, end))
 
@@ -442,32 +480,34 @@ class InnerWindow(QMainWindow):
         self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
 
-        self.timer.start(1000)  # 1 second interval for visibility
+    def compileSimulation(self):
+        """Compile and start the simulation for the selected algorithm."""
+        self.initialize_processes()
+        scheduler = self.get_scheduler()
+        self.timeline = scheduler.calculate_completion_time()
+        self.update_timeline_and_gantt()
+        self.timer.start(500)  # 1 second interval for visibility
 
-    def update_execution(self):
+    def check_simulation_completion(self):
+        """Check if the simulation has completed and finalize if so."""
         if self.current_time >= self.max_time:
             self.timer.stop()
             self.calculate_averages()
             self.cpu_label.setText(" Idle ")
             self.ready_queue_display.setText("Empty")
             QMessageBox.information(self, "Compile", "Simulation completed!")
-            return
+            return True
+        return False
 
-        # Find currently executing process
-        current_pid = None
-        current_slice = None
+    def find_current_process(self):
+        """Find the process currently executing at the current time."""
         for pid, start, end in self.timeline:
             if start <= self.current_time < end:
-                current_pid = pid
-                current_slice = (pid, start, end)
-                break
+                return pid
+        return None
 
-        if current_pid is not None:
-            self.cpu_label.setText(f" P{current_pid} ")
-        else:
-            self.cpu_label.setText(" Idle ")
-
-        # Update ready queue
+    def update_ready_queue(self, current_pid):
+        """Update the ready queue based on current time and process status."""
         ready_queue = []
         for i, process in enumerate(self.processes_data):
             pid = i + 1
@@ -478,12 +518,11 @@ class InnerWindow(QMainWindow):
             if at <= self.current_time and not process["completed"] and pid != current_pid and remaining_time > 0:
                 ready_queue.append((pid, at))
 
-        ready_queue.sort(key=lambda x: x[1])  # Sort by arrival time
+        ready_queue.sort(key=lambda x: x[1])
         self.ready_queue_display.setText(" ".join([f"P{pid}" for pid, _ in ready_queue]) if ready_queue else "Empty")
 
-        print(f"Time {self.current_time}: CPU={self.cpu_label.text().strip()}, Ready Queue={self.ready_queue_display.text()}")
-
-        # Update status bar and CT for all processes simultaneously
+    def update_process_status(self):
+        """Update the status bar, CT, TAT, and WT for each process."""
         for i, process in enumerate(self.processes_data):
             pid = i + 1
             if process["completed"]:
@@ -495,12 +534,10 @@ class InnerWindow(QMainWindow):
             process["status_bar"].setValue(min(int(progress), 100))
             process["current_ct"] = executed_time
 
-            # Update CT in real-time
             if executed_time > 0:
                 current_ct = max(end for start, end in process["slices"] if end <= self.current_time + 1)
                 process["ct"].setText(str(current_ct))
 
-            # If process completes (status bar reaches 100%)
             if executed_time >= total_bt and not process["completed"]:
                 process["completed"] = True
                 final_ct = max(end for _, end in process["slices"])
@@ -511,10 +548,27 @@ class InnerWindow(QMainWindow):
                 process["waiting_time"].setText(str(wt))
                 print(f"P{pid} completed at time {self.current_time}: CT={final_ct}, TAT={tat}, WT={wt}")
 
+    def update_gantt_chart(self):
+        """Update the Gantt chart based on the current timeline."""
         self.current_timeline = [(pid, start, end) for pid, start, end in self.timeline if start <= self.current_time + 1]
         self.gantt_widget.timeline = self.current_timeline
         self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
+
+    def update_execution(self):
+        """Update the simulation state for the current time step."""
+        if self.check_simulation_completion():
+            return
+
+        current_pid = self.find_current_process()
+        if current_pid is not None:
+            self.cpu_label.setText(f" P{current_pid} ")
+        else:
+            self.cpu_label.setText(" Idle ")
+
+        self.update_ready_queue(current_pid)
+        self.update_process_status()
+        self.update_gantt_chart()
 
         self.current_time += 1
 
@@ -642,6 +696,9 @@ class CPUScheduler(QMainWindow):
 
         self.additional_layout = None
         self.time_quantum_layout = None
+        self.extra_spacing = None
+        self.newComboBox = None
+        self.timeQuantumSpinBox = None
 
         self.bottom_layout = QVBoxLayout()
         self.start_btn = QPushButton("Start")
@@ -662,85 +719,100 @@ class CPUScheduler(QMainWindow):
     def updateUI(self):
         selected_text = self.comboBox.currentText()
 
-        if self.additional_layout:
-            while self.additional_layout.count():
-                item = self.additional_layout.takeAt(0)
-                widget = item.widget()
-                if widget:
-                    widget.deleteLater()
-            self.fixed_container_layout.removeItem(self.additional_layout)
-            del self.additional_layout
-            self.additional_layout = None
-
-        if hasattr(self, 'time_quantum_layout') and self.time_quantum_layout:
-            while self.time_quantum_layout.count():
-                item = self.time_quantum_layout.takeAt(0)
-                widget = item.widget()
-                if widget:
-                    widget.deleteLater()
-            self.fixed_container_layout.removeItem(self.time_quantum_layout)
-            del self.time_quantum_layout
-            self.time_quantum_layout = None
+        self.clear_layout(self.additional_layout)
+        self.additional_layout = None
+        self.newComboBox = None
+        self.clear_layout(self.time_quantum_layout)
+        self.time_quantum_layout = None
+        self.timeQuantumSpinBox = None
+        self.clear_layout(self.extra_spacing)
+        self.extra_spacing = None
 
         if selected_text in ["Shortest Job First (SJF)", "Priority Scheduling"]:
-            self.extra_spacing = QVBoxLayout()
-            self.extra_spacing.addSpacing(20)
-            self.fixed_container_layout.addLayout(self.extra_spacing)
+            self.setup_sjf_priority_ui()
+        elif selected_text == "Round Robin (RR)":
+            self.setup_round_robin_ui()
 
-            self.additional_layout = QHBoxLayout()
-            self.typeLabel = QLabel("Type:")
-            font4 = QFont()
-            font4.setPointSize(15)
-            font4.setBold(True)
-            self.typeLabel.setFont(font4)
-            self.typeLabel.setStyleSheet("color: white; background: transparent;")
-            self.typeLabel.setFixedWidth(140)
-            self.additional_layout.addWidget(self.typeLabel)
+    def clear_layout(self, layout):
+        """Removes all widgets from a given layout and deletes it."""
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+            self.fixed_container_layout.removeItem(layout)
 
-            self.newComboBox = QComboBox()
-            self.newComboBox.addItems(["Preemptive", "Non Preemptive"])
-            font5 = QFont("Arial", 10)
-            self.newComboBox.setFont(font5)
-            self.newComboBox.setStyleSheet("color: black; background: white;")
-            self.newComboBox.setFixedSize(160, 35)
-            self.additional_layout.addWidget(self.newComboBox)
+    def setup_sjf_priority_ui(self):
+        """Sets up UI elements for SJF and Priority Scheduling."""
+        self.extra_spacing = QVBoxLayout()
+        self.extra_spacing.addSpacing(20)
+        self.fixed_container_layout.addLayout(self.extra_spacing)
 
-            self.fixed_container_layout.addLayout(self.additional_layout)
-            self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
+        self.additional_layout = QHBoxLayout()
+        self.typeLabel = self.create_label("Type:", 15, 140)
+        self.additional_layout.addWidget(self.typeLabel)
 
-        if selected_text == "Round Robin (RR)":
-            self.extra_spacing = QVBoxLayout()
-            self.extra_spacing.addSpacing(20)
-            self.fixed_container_layout.addLayout(self.extra_spacing)
+        self.newComboBox = self.create_combo_box(["Preemptive", "Non Preemptive"], 160, 35)
+        self.additional_layout.addWidget(self.newComboBox)
 
-            self.time_quantum_layout = QHBoxLayout()
-            self.timeQuantumLabel = QLabel("Time Quantum:")
-            font4 = QFont()
-            font4.setPointSize(15)
-            font4.setBold(True)
-            self.timeQuantumLabel.setFont(font4)
-            self.timeQuantumLabel.setStyleSheet("color: white; background: transparent;")
-            self.timeQuantumLabel.setFixedWidth(200)
-            self.time_quantum_layout.addWidget(self.timeQuantumLabel)
-            self.time_quantum_layout.addSpacing(10)
+        self.fixed_container_layout.addLayout(self.additional_layout)
+        self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
 
-            self.timeQuantumSpinBox = QSpinBox()
-            self.timeQuantumSpinBox.setFixedSize(100, 35)
-            self.timeQuantumSpinBox.setRange(1, 10)
-            self.timeQuantumSpinBox.setValue(2)
-            self.timeQuantumSpinBox.setStyleSheet("color: black;")
-            font = QFont("Arial", 10)
-            self.timeQuantumSpinBox.setFont(font)
-            self.time_quantum_layout.addWidget(self.timeQuantumSpinBox)
+    def setup_round_robin_ui(self):
+        """Sets up UI elements for Round Robin Scheduling."""
+        self.extra_spacing = QVBoxLayout()
+        self.extra_spacing.addSpacing(20)
+        self.fixed_container_layout.addLayout(self.extra_spacing)
 
-            self.fixed_container_layout.addLayout(self.time_quantum_layout)
-            self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
+        self.time_quantum_layout = QHBoxLayout()
+        self.timeQuantumLabel = self.create_label("Time Quantum:", 15, 200)
+        self.time_quantum_layout.addWidget(self.timeQuantumLabel)
+        self.time_quantum_layout.addSpacing(10)
+
+        self.timeQuantumSpinBox = self.create_spin_box(1, 10, 2, 100, 35)
+        self.time_quantum_layout.addWidget(self.timeQuantumSpinBox)
+
+        self.fixed_container_layout.addLayout(self.time_quantum_layout)
+        self.fixed_container_layout.setAlignment(Qt.AlignHCenter)
+
+    def create_label(self, text, font_size, width):
+        """Creates and returns a QLabel with given properties."""
+        label = QLabel(text)
+        font = QFont()
+        font.setPointSize(font_size)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: white; background: transparent;")
+        label.setFixedWidth(width)
+        return label
+
+    def create_combo_box(self, items, width, height):
+        """Creates and returns a QComboBox with given properties."""
+        combo_box = QComboBox()
+        combo_box.addItems(items)
+        font = QFont("Arial", 10)
+        combo_box.setFont(font)
+        combo_box.setStyleSheet("color: black; background: white;")
+        combo_box.setFixedSize(width, height)
+        return combo_box
+
+    def create_spin_box(self, min_val, max_val, default_val, width, height):
+        """Creates and returns a QSpinBox with given properties."""
+        spin_box = QSpinBox()
+        spin_box.setFixedSize(width, height)
+        spin_box.setRange(min_val, max_val)
+        spin_box.setValue(default_val)
+        spin_box.setStyleSheet("color: black;")
+        font = QFont("Arial", 10)
+        spin_box.setFont(font)
+        return spin_box
 
     def startSimulation(self):
         selected_algorithm = self.comboBox.currentText()
         process_quantity = self.quantitySpinBox.value()
-        is_preemptive = self.newComboBox.currentText() == "Preemptive" if self.additional_layout else False
-        time_quantum = self.timeQuantumSpinBox.value() if hasattr(self, 'timeQuantumSpinBox') else 2
+        is_preemptive = self.newComboBox.currentText() == "Preemptive" if self.newComboBox else False
+        time_quantum = self.timeQuantumSpinBox.value() if self.timeQuantumSpinBox else 2
         self.inner_window = InnerWindow(selected_algorithm, process_quantity, is_preemptive, time_quantum)
         self.inner_window.show()
         self.close()
