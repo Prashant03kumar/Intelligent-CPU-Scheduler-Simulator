@@ -486,7 +486,7 @@ class InnerWindow(QMainWindow):
         scheduler = self.get_scheduler()
         self.timeline = scheduler.calculate_completion_time()
         self.update_timeline_and_gantt()
-        self.timer.start(500)  # 1 second interval for visibility
+        self.timer.start(100)  # 1 second interval for visibility
 
     def check_simulation_completion(self):
         """Check if the simulation has completed and finalize if so."""
@@ -700,21 +700,37 @@ class CPUScheduler(QMainWindow):
         self.newComboBox = None
         self.timeQuantumSpinBox = None
 
-        self.bottom_layout = QVBoxLayout()
-        self.start_btn = QPushButton("Start")
-        self.start_btn.setFixedSize(150, 35)
-        font = QFont("Arial", 10)
-        font.setBold(True)
-        self.start_btn.setFont(font)
-        self.start_btn.setStyleSheet("color: black; background: white;")
-        self.start_btn.clicked.connect(self.startSimulation)
+        self.bottom_layout = QHBoxLayout()
+        self.start_btn = self.create_styled_button("Start", self.startSimulation)
+        self.bottom_layout.addStretch()
         self.bottom_layout.addWidget(self.start_btn)
-        self.bottom_layout.setAlignment(Qt.AlignHCenter)
+        self.bottom_layout.addStretch()
+
+        self.exit_layout = QHBoxLayout()
+        self.exit_btn = self.create_styled_button("Exit", self.exit_application)
+        self.exit_layout.addStretch()
+        self.exit_layout.addWidget(self.exit_btn)
 
         self.layout.addLayout(self.top_layout)
         self.layout.addSpacing(30)
         self.layout.addLayout(self.bottom_layout)
         self.layout.addStretch()
+        self.layout.addLayout(self.exit_layout)
+
+    def create_styled_button(self, text, slot):
+        """Helper method to create a styled QPushButton."""
+        button = QPushButton(text)
+        button.setFixedSize(100, 35)
+        font = QFont("Arial", 10)
+        font.setBold(True)
+        button.setFont(font)
+        button.setStyleSheet("color: black; background: white;")
+        button.clicked.connect(slot)
+        return button
+
+    def exit_application(self):
+        """Slot to exit the application."""
+        QApplication.quit()
 
     def updateUI(self):
         selected_text = self.comboBox.currentText()
