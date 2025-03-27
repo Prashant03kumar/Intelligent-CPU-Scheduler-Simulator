@@ -4,7 +4,6 @@ class RoundRobin:
         self.time_quantum = time_quantum
 
     def add_to_ready_queue(self, processes, current_time, index, ready_queue):
-        """Add processes to the ready queue based on arrival time."""
         while index < len(processes) and processes[index][1] <= current_time:
             pid, _, _ = processes[index]
             ready_queue.append(pid)
@@ -21,7 +20,6 @@ class RoundRobin:
         index = 0
 
         while len(completed) < len(processes):
-            # Add arriving processes to the ready queue
             index = self.add_to_ready_queue(processes, current_time, index, ready_queue)
 
             if not ready_queue:
@@ -37,7 +35,6 @@ class RoundRobin:
             current_time += execution_time
             remaining_bt[pid] -= execution_time
 
-            # Add processes that arrived during execution
             index = self.add_to_ready_queue(processes, current_time, index, ready_queue)
 
             if remaining_bt[pid] > 0:

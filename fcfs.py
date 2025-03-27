@@ -1,17 +1,19 @@
 class FCFS:
     def __init__(self, processes):
-        self.processes = sorted(processes, key=lambda x: x[1])  # Sort by arrival time
+        self.processes = processes  # List of (pid, at, bt)
 
     def calculate_completion_time(self):
-        current_time = 0
+        """Calculate completion time using FCFS scheduling."""
+        processes = sorted(self.processes, key=lambda x: x[1])  # Sort by arrival time
         timeline = []
-        
-        for pid, arrival, burst in self.processes:
-            if current_time < arrival:
-                current_time = arrival  # Wait if CPU is idle
+        current_time = 0
+
+        for pid, at, bt in processes:
+            # If the CPU is idle, fast-forward to the arrival time
+            if current_time < at:
+                current_time = at
             start_time = current_time
-            end_time = start_time + burst
-            timeline.append((pid, start_time, end_time))
-            current_time = end_time
-        
+            current_time += bt
+            timeline.append((pid, start_time, current_time))
+
         return timeline

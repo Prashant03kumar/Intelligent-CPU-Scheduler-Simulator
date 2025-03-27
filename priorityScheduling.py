@@ -1,10 +1,9 @@
 class PriorityScheduling:
     def __init__(self, processes, is_preemptive):
-        self.processes = processes  # List of (pid, at, bt, priority)
+        self.processes = processes
         self.is_preemptive = is_preemptive
 
     def add_to_ready_queue(self, processes, current_time, index, ready_queue, remaining_bt):
-        """Add processes to the ready queue based on arrival time."""
         while index < len(processes) and processes[index][1] <= current_time:
             pid, _, _, priority = processes[index]
             ready_queue.append((pid, priority, remaining_bt[pid]))
@@ -30,7 +29,7 @@ class PriorityScheduling:
                     break
                 continue
 
-            ready_queue.sort(key=lambda x: (-x[1], x[0]))  # Sort by priority (descending), then PID
+            ready_queue.sort(key=lambda x: (-x[1], x[0]))
             pid, _, _ = ready_queue.pop(0)
             start_time = current_time
             current_time += 1
@@ -46,3 +45,40 @@ class PriorityScheduling:
             timeline.append((pid, start_time, current_time))
 
         return timeline
+
+    def _non_preemptive_priority(self):
+        processes = sorted(self.processes, key=lambda x: x[1])
+        timeline = []
+        current_time = 0
+        ready_queue = []
+        completed = set()
+        index = 0
+
+        while len(completed) < len(processes):
+            while index < len(processes) and processes[index][1] <= current_time:
+                pid, _, bt, priority = processes[index]
+                ready_queue.append((pid, priority, bt))
+                index += 1
+
+            if not ready_queue:
+                if index < len(processes):
+                    current_time = processes[index][1]
+                else:
+                    break
+                continue
+
+            ready_queue.sort(key=lambda x: (-x[1], x[0]))
+            pid, _, bt = ready_queue.pop(0)
+            start_time = current_time
+            current_time += bt
+
+            timeline.append((pid, start_time, current_time))
+            completed.add(pid)
+
+        return timeline
+
+    def calculate_completion_time(self):
+        if self.is_preemptive:
+            return self._preemptive_priority()
+        else:
+            return self._non_preemptive_priority()
