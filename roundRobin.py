@@ -1,51 +1,50 @@
 class RoundRobin:
     def __init__(self, processes, time_quantum):
-        self.processes = processes  # List of (pid, arrival, burst)
+        self.processes = processes
         self.time_quantum = time_quantum
 
+    def add_to_ready_queue(self, processes, current_time, index, ready_queue):
+        """Add processes to the ready queue based on arrival time."""
+        while index < len(processes) and processes[index][1] <= current_time:
+            pid, _, _ = processes[index]
+            ready_queue.append(pid)
+            index += 1
+        return index
+
     def calculate_completion_time(self):
-        # Copy processes with remaining burst time
-        remaining = [(pid, arrival, burst, burst) for pid, arrival, burst in self.processes]
-        # remaining format: (pid, arrival_time, original_burst, remaining_burst)
-        current_time = 0
+        processes = sorted(self.processes, key=lambda x: x[1])
         timeline = []
+        current_time = 0
         ready_queue = []
+        remaining_bt = {pid: bt for pid, _, bt in processes}
+        completed = set()
+        index = 0
 
-        # Sort processes by arrival time initially
-        remaining.sort(key=lambda x: x[1])
-
-        while remaining or ready_queue:
-            # Add processes that have arrived to the ready queue
-            while remaining and remaining[0][1] <= current_time:
-                pid, arrival, burst, rem_burst = remaining.pop(0)
-                ready_queue.append((pid, arrival, burst, rem_burst))
+        while len(completed) < len(processes):
+            # Add arriving processes to the ready queue
+            index = self.add_to_ready_queue(processes, current_time, index, ready_queue)
 
             if not ready_queue:
-                # If no process is ready, move time to next arrival
-                if remaining:
-                    current_time = remaining[0][1]
+                if index < len(processes):
+                    current_time = processes[index][1]
+                else:
+                    break
                 continue
 
-            # Take the first process from the ready queue
-            pid, arrival, burst, rem_burst = ready_queue.pop(0)
+            pid = ready_queue.pop(0)
             start_time = current_time
-            executed_time = min(rem_burst, self.time_quantum)
-            end_time = start_time + executed_time
-            rem_burst -= executed_time
+            execution_time = min(self.time_quantum, remaining_bt[pid])
+            current_time += execution_time
+            remaining_bt[pid] -= execution_time
 
-            # Add to timeline
-            timeline.append((pid, start_time, end_time))
+            # Add processes that arrived during execution
+            index = self.add_to_ready_queue(processes, current_time, index, ready_queue)
 
-            # Update current time
-            current_time = end_time
+            if remaining_bt[pid] > 0:
+                ready_queue.append(pid)
+            else:
+                completed.add(pid)
 
-            # Add newly arrived processes during this execution
-            while remaining and remaining[0][1] <= current_time:
-                pid_new, arrival_new, burst_new, rem_burst_new = remaining.pop(0)
-                ready_queue.append((pid_new, arrival_new, burst_new, rem_burst_new))
-
-            # If process still has remaining burst, add back to queue
-            if rem_burst > 0:
-                ready_queue.append((pid, arrival, burst, rem_burst))
+            timeline.append((pid, start_time, current_time))
 
         return timeline
