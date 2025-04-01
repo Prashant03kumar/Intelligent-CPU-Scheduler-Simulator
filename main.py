@@ -422,6 +422,7 @@ class InnerWindow(QMainWindow):
         self.initialize_processes()
         scheduler = self.get_scheduler()
         self.timeline = scheduler.calculate_completion_time()
+        print(f"Timeline: {self.timeline}")
         self.update_timeline_and_gantt()
         self.timer.start(100)
 
@@ -466,7 +467,13 @@ class InnerWindow(QMainWindow):
 
     def calculate_executed_time(self, process):
         """Calculate the executed time for a process up to the current time."""
-        return sum(end - start for start, end in process["slices"] if end <= self.current_time + 1)
+        executed_time = 0
+        for start, end in process["slices"]:
+            if end <= self.current_time + 1:
+                executed_time += end - start
+            elif start <= self.current_time < end:
+                executed_time += (self.current_time + 1) - start
+        return executed_time
 
     def update_process_on_completion(self, process, pid, total_bt):
         """Handle process completion, updating CT, TAT, and WT."""
@@ -477,7 +484,7 @@ class InnerWindow(QMainWindow):
         wt = calculate_waiting_time(tat, total_bt)
         process["tat"].setText(str(tat))
         process["waiting_time"].setText(str(wt))
-        print(f"P{pid} completed at time {self.current_time}: CT={final_ct}, TAT={tat}, WT={wt}")
+        print(f"P{pid} completed at time {final_ct}: CT={final_ct}, TAT={tat}, WT={wt}")
 
     def update_process_status(self):
         """Update the status bar, CT, TAT, and WT for each process."""
@@ -490,10 +497,6 @@ class InnerWindow(QMainWindow):
             progress = (executed_time / total_bt) * 100 if total_bt > 0 else 0
             process["status_bar"].setValue(min(int(progress), 100))
             process["current_ct"] = executed_time
-
-            if executed_time > 0:
-                current_ct = max(end for start, end in process["slices"] if end <= self.current_time + 1)
-                process["ct"].setText(str(current_ct))
 
             if executed_time >= total_bt:
                 self.update_process_on_completion(process, i + 1, total_bt)
