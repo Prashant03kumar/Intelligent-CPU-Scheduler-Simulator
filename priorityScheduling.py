@@ -1,4 +1,21 @@
 class PriorityScheduling:
+    about = {
+        "preemptive": (
+            "Priority Scheduling (Preemptive):\n\n"
+            "In preemptive Priority Scheduling, each process is assigned a priority (lower number indicates higher priority), "
+            "and the CPU is allocated to the highest-priority process that has arrived. If a higher-priority process arrives, "
+            "the current process is preempted, and the new process takes over. This ensures critical tasks are handled promptly but "
+            "may cause starvation for low-priority processes if high-priority processes keep arriving."
+        ),
+        "non_preemptive": (
+            "Priority Scheduling (Non-Preemptive):\n\n"
+            "In non-preemptive Priority Scheduling, the CPU is allocated to the highest-priority process among those that have "
+            "arrived, and it runs to completion without interruption. Priorities are represented by numbers, with lower numbers "
+            "indicating higher priority. This algorithm prioritizes important tasks but may lead to longer waiting times for "
+            "low-priority processes."
+        )
+    }
+
     def __init__(self, processes, is_preemptive):
         print("Initializing PriorityScheduling with processes:", processes, "is_preemptive:", is_preemptive)
         self.processes = sorted(processes, key=lambda x: x[1])  # Sort by arrival time

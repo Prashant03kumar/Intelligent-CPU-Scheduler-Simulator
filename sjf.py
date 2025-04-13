@@ -1,4 +1,20 @@
 class SJF:
+    about = {
+        "preemptive": (
+            "Shortest Job First (SJF) Scheduling (Preemptive):\n\n"
+            "Also known as Shortest Remaining Time First (SRTF), this algorithm preempts the currently executing process "
+            "if a new process arrives with a shorter remaining burst time. The process with the shortest remaining time is "
+            "allocated the CPU at each time unit. This minimizes average waiting time but requires knowledge of burst times "
+            "and can lead to starvation if short processes keep arriving."
+        ),
+        "non_preemptive": (
+            "Shortest Job First (SJF) Scheduling (Non-Preemptive):\n\n"
+            "In non-preemptive SJF, the CPU is allocated to the process with the shortest burst time among those that have "
+            "arrived, and it runs to completion without interruption. This algorithm reduces average waiting time compared to "
+            "FCFS but may cause longer processes to wait excessively if short processes arrive frequently."
+        )
+    }
+
     def __init__(self, processes, is_preemptive):
         self.processes = processes
         self.is_preemptive = is_preemptive

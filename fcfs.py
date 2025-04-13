@@ -1,4 +1,12 @@
 class FCFS:
+    about = (
+        "First Come First Serve (FCFS) Scheduling:\n\n"
+        "FCFS is a non-preemptive scheduling algorithm where processes are executed in the order they arrive. "
+        "The process that arrives first is allocated the CPU first, and it runs to completion before the next process starts. "
+        "This algorithm is simple and fair but may lead to the convoy effect, where short processes wait behind a long process, "
+        "resulting in higher average waiting times."
+    )
+
     def __init__(self, processes):
         self.processes = processes  # List of (pid, at, bt)
 

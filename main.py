@@ -36,19 +36,20 @@ class GanttChart(QWidget):
         painter.fillRect(self.rect(), QColor(255, 255, 255))
 
         colors = [QColor(255, 100, 100), QColor(100, 255, 100), 
-                 QColor(100, 100, 255), QColor(255, 255, 100), 
-                 QColor(255, 100, 255)]
+                QColor(100, 100, 255), QColor(255, 255, 100), 
+                QColor(255, 100, 255)]
 
-        if self.timeline:
-            for pid, start, end in self.timeline:
-                row = self.processes.index(pid)
-                y = row * row_height
-                x_start = start * time_scale
-                x_width = (end - start) * time_scale
-                color = colors[row % len(colors)]
-                painter.fillRect(int(x_start), y, int(x_width), row_height - 5, color)
-                painter.drawText(int(x_start) + 5, y + row_height // 2, f"P{pid}")
+        # Draw each segment in the current timeline
+        for pid, start, end in self.timeline:
+            row = self.processes.index(pid)
+            y = row * row_height
+            x_start = start * time_scale
+            x_width = (end - start) * time_scale
+            color = colors[row % len(colors)]
+            painter.fillRect(int(x_start), y, int(x_width), row_height - 5, color)
+            painter.drawText(int(x_start) + 5, y + row_height // 2, f"P{pid}")
 
+        # Draw time markers
         for t in range(self.max_time + 1):
             x = t * time_scale
             painter.drawLine(int(x), 0, int(x), height)
@@ -344,7 +345,7 @@ class InnerWindow(QMainWindow):
         font.setItalic(True)
         self.label.setFont(font)
         self.label.setAlignment(Qt.AlignLeft)
-        self.label.setStyleSheet("color: white; background: transparent;")
+        self.label.setStyleSheet("color: yellow; background: transparent;")
         self.label.setFixedWidth(120)
         self.readQueue_layout.addWidget(self.label)
         self.readQueue_layout.addSpacing(20)
@@ -478,7 +479,7 @@ class InnerWindow(QMainWindow):
     def update_process_on_completion(self, process, pid, total_bt):
         """Handle process completion, updating CT, TAT, and WT."""
         process["completed"] = True
-        final_ct = max(end for _, end in process["slices"])
+        final_ct = max(end for _, end in process["slices"])  # Final completion time from timeline
         process["ct"].setText(str(final_ct))
         tat = calculate_turnaround_time(process["at"].value(), final_ct)
         wt = calculate_waiting_time(tat, total_bt)
@@ -488,6 +489,8 @@ class InnerWindow(QMainWindow):
 
     def update_process_status(self):
         """Update the status bar, CT, TAT, and WT for each process."""
+        current_pid = self.find_current_process()  # Get the currently executing process
+
         for i, process in enumerate(self.processes_data):
             if process["completed"]:
                 continue
@@ -498,12 +501,28 @@ class InnerWindow(QMainWindow):
             process["status_bar"].setValue(min(int(progress), 100))
             process["current_ct"] = executed_time
 
-            if executed_time >= total_bt:
-                self.update_process_on_completion(process, i + 1, total_bt)
+            # Update CT dynamically for the currently executing process
+            pid = i + 1
+            if pid == current_pid and not process["completed"]:
+                # CT should reflect the current time as the process is executing
+                current_ct = self.current_time + 1  # +1 because current_time increments after this method
+                process["ct"].setText(str(current_ct))
+
+            # Finalize CT, TAT, and WT when process completes
+            if executed_time >= total_bt and not process["completed"]:
+                self.update_process_on_completion(process, pid, total_bt)
 
     def update_gantt_chart(self):
-        """Update the Gantt chart based on the current timeline."""
-        self.current_timeline = [(pid, start, end) for pid, start, end in self.timeline if start <= self.current_time + 1]
+        """Update the Gantt chart based on the current execution time."""
+        self.current_timeline = []
+        for pid, start, end in self.timeline:
+            if start <= self.current_time:
+                # Cap the end time at current_time + 1 for the current segment
+                effective_end = min(end, self.current_time + 1)
+                self.current_timeline.append((pid, start, effective_end))
+            if end <= self.current_time + 1:
+                continue  # Skip fully completed segments if needed
+
         self.gantt_widget.timeline = self.current_timeline
         self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
@@ -520,8 +539,8 @@ class InnerWindow(QMainWindow):
             self.cpu_label.setText(" Idle ")
 
         self.update_ready_queue(current_pid)
-        self.update_process_status()
-        self.update_gantt_chart()
+        self.update_process_status()  # Updates status bar, CT (dynamically), TAT, WT
+        self.update_gantt_chart()     # Updates Gantt chart
 
         self.current_time += 1
 
@@ -758,6 +777,54 @@ class CPUScheduler(QMainWindow):
         process_quantity = self.quantitySpinBox.value()
         is_preemptive = self.newComboBox.currentText() == "Preemptive" if self.newComboBox else False
         time_quantum = self.timeQuantumSpinBox.value() if self.timeQuantumSpinBox else 2
+
+        # Map algorithm name to class and about text
+        algorithm_map = {
+            "First Come First Serve (FCFS)": (FCFS, FCFS.about),
+            "Shortest Job First (SJF)": (
+                SJF,
+                SJF.about["preemptive"] if is_preemptive else SJF.about["non_preemptive"]
+            ),
+            "Round Robin (RR)": (RoundRobin, RoundRobin.about),
+            "Priority Scheduling": (
+                PriorityScheduling,
+                PriorityScheduling.about["preemptive"] if is_preemptive else PriorityScheduling.about["non_preemptive"]
+            )
+        }
+
+        algo_class, about_text = algorithm_map[selected_algorithm]
+        title = f"About {selected_algorithm}"
+
+        # Create and style the popup
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(about_text)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #00008B;  /* Blue background */
+            }
+            QMessageBox QLabel {
+                color: white;  /* White text */
+                font-size: 12pt;
+            }
+            QMessageBox QPushButton {
+                color: white;
+                background-color: #1976D2;  /* Darker blue button */
+                border: 1px solid #0D47A1;
+                padding: 5px;
+                min-width: 80px;
+                font-size: 12pt;
+            }
+            QMessageBox QPushButton:hover {
+                background-color: #0D47A1;
+            }
+        """)
+        
+        # Show popup and wait for OK
+        msg.exec_()
+
+        # Proceed to InnerWindow
         self.inner_window = InnerWindow(selected_algorithm, process_quantity, is_preemptive, time_quantum)
         self.inner_window.show()
         self.close()

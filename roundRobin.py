@@ -1,4 +1,12 @@
 class RoundRobin:
+    about = (
+        "Round Robin (RR) Scheduling:\n\n"
+        "Round Robin is a preemptive scheduling algorithm designed for time-sharing systems. Each process is assigned a fixed "
+        "time slice (quantum) and executes for that duration before being preempted and placed back in the ready queue. If a "
+        "process completes before its quantum expires, it releases the CPU early. RR ensures fairness and responsiveness but may "
+        "increase waiting times if the quantum is too large or too small."
+    )
+
     def __init__(self, processes, time_quantum):
         self.processes = processes
         self.time_quantum = time_quantum
