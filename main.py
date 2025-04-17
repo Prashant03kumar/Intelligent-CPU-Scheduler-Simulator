@@ -1,10 +1,10 @@
 import sys
+import json
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QLabel, QComboBox, 
                             QMainWindow, QHBoxLayout, QSpinBox, QPushButton, 
-                            QMessageBox, QProgressBar)
+                            QMessageBox, QProgressBar, QFileDialog, QGridLayout)
 from PyQt5.QtGui import QFont, QPainter, QColor
 from PyQt5.QtCore import Qt, QTimer
-
 from fcfs import FCFS
 from sjf import SJF
 from roundRobin import RoundRobin
@@ -94,10 +94,78 @@ class InnerWindow(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_execution)
+        self.is_paused = False
+
+    def setup_averages_section(self):
+        self.averageContainer = QWidget()
+        self.averageContainer.setFixedHeight(135)
+        self.averageContainer.setStyleSheet("background: transparent;")
+        self.average_layout = QHBoxLayout(self.averageContainer)
+
+        # Left side: Metrics labels (stacked vertically)
+        self.metrics_layout = QVBoxLayout()
+        if self.algorithm_choice == "Round Robin (RR)":
+            time_quantum_layout, self.timeQuantum_value = self.create_metric_layout("Time Quantum: ", str(self.time_quantum))
+            self.metrics_layout.addLayout(time_quantum_layout)
+
+        waiting_time_layout, self.avgWtTime = self.create_metric_layout("Average Waiting Time: ", "0", spacing=40)
+        turnaround_time_layout, self.avgTaTime = self.create_metric_layout("Average Turnaround Time: ", "0")
+        total_exec_time_layout, self.totalExecTime = self.create_metric_layout("Total Execution Time: ", "0", spacing=55)
+
+        self.metrics_layout.addLayout(waiting_time_layout)
+        self.metrics_layout.addLayout(turnaround_time_layout)
+        self.metrics_layout.addLayout(total_exec_time_layout)
+        self.metrics_layout.addStretch()
+
+        # Right side: Pause and Resume buttons (horizontal)
+        self.button_layout = QHBoxLayout()
+        self.pause_btn = self.create_styled_button("Pause", self.pause_simulation)
+        self.resume_btn = self.create_styled_button("Resume", self.resume_simulation)
+        
+        self.button_layout.addStretch()
+        self.button_layout.addSpacing(355)
+        self.button_layout.addWidget(self.pause_btn)
+        self.button_layout.addWidget(self.resume_btn)
+
+        self.average_layout.addLayout(self.metrics_layout)
+        self.average_layout.addStretch()
+        self.average_layout.addLayout(self.button_layout)
+
+        self.subMainLayout3.addWidget(self.averageContainer, alignment=Qt.AlignLeft)
+
+    def pause_simulation(self):
+        if not self.is_paused and self.timer.isActive():
+            self.timer.stop()
+            self.is_paused = True
+            self.cpu_label.setText(" Paused ")
+
+            completed_count = sum(1 for process in self.processes_data if process["completed"])
+            total_wt = 0
+            total_tat = 0
+            for process in self.processes_data:
+                if process["completed"]:
+                    total_wt += int(process["waiting_time"].text())
+                    total_tat += int(process["tat"].text())
+
+            avg_wt = total_wt / completed_count if completed_count > 0 else 0
+            avg_tat = total_tat / completed_count if completed_count > 0 else 0
+
+            message = f"Simulation paused.\nProcesses completed: {completed_count}/{self.process_quantity}\n"
+            message += f"Avg Waiting Time (completed processes): {avg_wt:.2f}\n"
+            message += f"Avg Turnaround Time (completed processes): {avg_tat:.2f}"
+            QMessageBox.information(self, "Pause", message)
+
+    def resume_simulation(self):
+        if self.is_paused and not self.timer.isActive():
+            self.timer.start(100)
+            self.is_paused = False
+            current_pid = self.find_current_process()
+            self.cpu_label.setText(f" P{current_pid} " if current_pid else " Idle ")
 
     def setup_window_basics(self):
         self.setWindowTitle("Algorithm Execution")
-        self.setGeometry(100, 100, 900, 700)
+        # Replace setGeometry with setFixedSize to prevent resizing
+        self.setFixedSize(900, 700)  # Enforce strict size of 900x700 pixels
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.centralWidget.setStyleSheet("""
@@ -191,7 +259,6 @@ class InnerWindow(QMainWindow):
         self.subMainLayout2.addLayout(self.processTableLayout)
 
     def create_spin_box(self, min_val, max_val, value, width, height, font_size=13):
-        """Create a styled QSpinBox."""
         spin_box = QSpinBox()
         spin_box.setRange(min_val, max_val)
         spin_box.setValue(value)
@@ -203,7 +270,6 @@ class InnerWindow(QMainWindow):
         return spin_box
 
     def create_label(self, text, width, font_size=13, style="color: white; background: transparent;"):
-        """Create a styled QLabel."""
         label = QLabel(text)
         label.setFont(QFont("Arial", font_size))
         label.setAlignment(Qt.AlignCenter)
@@ -212,7 +278,6 @@ class InnerWindow(QMainWindow):
         return label
 
     def create_progress_bar(self, width, height):
-        """Create a styled QProgressBar."""
         status_bar = QProgressBar()
         status_bar.setMaximum(100)
         status_bar.setValue(0)
@@ -240,9 +305,9 @@ class InnerWindow(QMainWindow):
         status_bar = self.create_progress_bar(110, 30)
         process_row.addWidget(status_bar)
 
-        ct_label = self.create_label("0", 120)
-        tat_label = self.create_label("0", 120)
-        waiting_time_label = self.create_label("0", 120)
+        ct_label = self.create_label("0", 110)
+        tat_label = self.create_label("0", 110)
+        waiting_time_label = self.create_label("0", 110)
         process_row.addWidget(ct_label)
         process_row.addWidget(tat_label)
         process_row.addWidget(waiting_time_label)
@@ -274,10 +339,11 @@ class InnerWindow(QMainWindow):
         self.subMainLayout2_5.addWidget(self.gantt_label)
 
         self.gantt_widget = GanttChart([], [], 0)
+        # Set a fixed size for the Gantt chart to prevent it from resizing
+        self.gantt_widget.setFixedSize(860, 120)  # Slightly less than window width to account for margins
         self.subMainLayout2_5.addWidget(self.gantt_widget)
 
     def create_metric_layout(self, label_text, value_text, spacing=0):
-        """Create a horizontal layout with a label and value for a metric."""
         layout = QHBoxLayout()
         label = QLabel(label_text)
         font = QFont()
@@ -299,27 +365,7 @@ class InnerWindow(QMainWindow):
         layout.addStretch()
         return layout, value_label
 
-    def setup_averages_section(self):
-        self.averageContainer = QWidget()
-        self.averageContainer.setFixedHeight(135)
-        self.averageContainer.setStyleSheet("background: transparent;")
-        self.average_layout = QVBoxLayout(self.averageContainer)
-
-        if self.algorithm_choice == "Round Robin (RR)":
-            time_quantum_layout, self.timeQuantum_value = self.create_metric_layout("Time Quantum: ", str(self.time_quantum))
-            self.average_layout.addLayout(time_quantum_layout)
-
-        waiting_time_layout, self.avgWtTime = self.create_metric_layout("Average Waiting Time: ", "0", spacing=40)
-        turnaround_time_layout, self.avgTaTime = self.create_metric_layout("Average Turnaround Time: ", "0")
-        total_exec_time_layout, self.totalExecTime = self.create_metric_layout("Total Execution Time: ", "0", spacing=55)
-
-        self.average_layout.addLayout(waiting_time_layout)
-        self.average_layout.addLayout(turnaround_time_layout)
-        self.average_layout.addLayout(total_exec_time_layout)
-        self.subMainLayout3.addWidget(self.averageContainer, alignment=Qt.AlignLeft)
-
     def create_styled_button(self, text, slot):
-        """Helper method to create a styled QPushButton."""
         button = QPushButton(text)
         button.setFixedSize(100, 35)
         font = QFont("Arial", 10)
@@ -330,7 +376,6 @@ class InnerWindow(QMainWindow):
         return button
 
     def exit_application(self):
-        """Slot to exit the application."""
         QApplication.quit()
 
     def setup_ready_queue_and_buttons(self):
@@ -355,6 +400,8 @@ class InnerWindow(QMainWindow):
         self.ready_queue_display.setFont(font)
         self.ready_queue_display.setAlignment(Qt.AlignLeft)
         self.ready_queue_display.setStyleSheet("color: white; background: black; padding: 5px;")
+        # Set a fixed width for ready_queue_display to prevent resizing
+        self.ready_queue_display.setFixedWidth(300)  # Fixed width to accommodate longer text like "P1 P2 P3 P4 P5"
         self.readQueue_layout.addWidget(self.ready_queue_display)
         self.readQueue_layout.addStretch()
 
@@ -371,13 +418,11 @@ class InnerWindow(QMainWindow):
         self.subMainLayout4.addWidget(self.exit_btn)
 
     def return_to_main(self):
-        """Return to the main CPUScheduler window and close the current window."""
         self.main_window = CPUScheduler()
         self.main_window.show()
         self.close()
 
     def get_scheduler(self):
-        """Return the appropriate scheduler based on the algorithm choice."""
         schedulers = {
             "First Come First Serve (FCFS)": lambda: FCFS([(pid, at, bt) for pid, at, bt, _ in self.processes]),
             "Shortest Job First (SJF)": lambda: SJF([(pid, at, bt) for pid, at, bt, _ in self.processes], self.is_preemptive),
@@ -387,7 +432,6 @@ class InnerWindow(QMainWindow):
         return schedulers[self.algorithm_choice]()
 
     def initialize_processes(self):
-        """Initialize the processes list and reset process data."""
         self.processes = []
         for i, process in enumerate(self.processes_data):
             pid = i + 1
@@ -395,16 +439,21 @@ class InnerWindow(QMainWindow):
             bt = process["bt"].value()
             priority = process["priority"].value() if self.algorithm_choice == "Priority Scheduling" else 0
             self.processes.append((pid, at, bt, priority))
+            
             process["remaining_bt"] = bt
             process["current_ct"] = 0
+            process["slices"] = []
             process["completed"] = False
+            process["status_bar"].setValue(0)
             process["ct"].setText("0")
             process["tat"].setText("0")
             process["waiting_time"].setText("0")
-            print(f"Process P{pid}: AT={at}, BT={bt}, Priority={priority}")
+
+        self.avgWtTime.setText("0")
+        self.avgTaTime.setText("0")
+        self.totalExecTime.setText("0")
 
     def update_timeline_and_gantt(self):
-        """Update the timeline and Gantt chart after scheduling."""
         self.all_processes = sorted(set(pid for pid, _, _ in self.timeline))
         for pid, start, end in self.timeline:
             self.processes_data[pid - 1]["slices"].append((start, end))
@@ -419,18 +468,17 @@ class InnerWindow(QMainWindow):
         self.gantt_widget.update()
 
     def compileSimulation(self):
-        """Compile and start the simulation for the selected algorithm."""
         self.initialize_processes()
         scheduler = self.get_scheduler()
         self.timeline = scheduler.calculate_completion_time()
-        print(f"Timeline: {self.timeline}")
         self.update_timeline_and_gantt()
+        self.is_paused = False
         self.timer.start(100)
 
     def check_simulation_completion(self):
-        """Check if the simulation has completed and finalize if so."""
         if self.current_time >= self.max_time:
             self.timer.stop()
+            self.is_paused = False
             self.calculate_averages()
             self.cpu_label.setText(" Idle ")
             self.ready_queue_display.setText("Empty")
@@ -439,14 +487,12 @@ class InnerWindow(QMainWindow):
         return False
 
     def find_current_process(self):
-        """Find the process currently executing at the current time."""
         for pid, start, end in self.timeline:
             if start <= self.current_time < end:
                 return pid
         return None
 
     def can_add_to_ready_queue(self, process, pid, current_pid, current_time):
-        """Determine if a process should be added to the ready queue."""
         at = process["at"].value()
         bt = process["bt"].value()
         executed_time = sum(end - start for start, end in process["slices"] if end <= current_time + 1)
@@ -455,7 +501,6 @@ class InnerWindow(QMainWindow):
                 pid != current_pid and remaining_time > 0)
 
     def update_ready_queue(self, current_pid):
-        """Update the ready queue based on current time and process status."""
         ready_queue = []
         for i, process in enumerate(self.processes_data):
             pid = i + 1
@@ -467,7 +512,6 @@ class InnerWindow(QMainWindow):
         self.ready_queue_display.setText(display_text)
 
     def calculate_executed_time(self, process):
-        """Calculate the executed time for a process up to the current time."""
         executed_time = 0
         for start, end in process["slices"]:
             if end <= self.current_time + 1:
@@ -477,19 +521,16 @@ class InnerWindow(QMainWindow):
         return executed_time
 
     def update_process_on_completion(self, process, pid, total_bt):
-        """Handle process completion, updating CT, TAT, and WT."""
         process["completed"] = True
-        final_ct = max(end for _, end in process["slices"])  # Final completion time from timeline
+        final_ct = max(end for _, end in process["slices"]) if process["slices"] else 0
         process["ct"].setText(str(final_ct))
         tat = calculate_turnaround_time(process["at"].value(), final_ct)
         wt = calculate_waiting_time(tat, total_bt)
         process["tat"].setText(str(tat))
         process["waiting_time"].setText(str(wt))
-        print(f"P{pid} completed at time {final_ct}: CT={final_ct}, TAT={tat}, WT={wt}")
 
     def update_process_status(self):
-        """Update the status bar, CT, TAT, and WT for each process."""
-        current_pid = self.find_current_process()  # Get the currently executing process
+        current_pid = self.find_current_process()
 
         for i, process in enumerate(self.processes_data):
             if process["completed"]:
@@ -501,34 +542,28 @@ class InnerWindow(QMainWindow):
             process["status_bar"].setValue(min(int(progress), 100))
             process["current_ct"] = executed_time
 
-            # Update CT dynamically for the currently executing process
             pid = i + 1
             if pid == current_pid and not process["completed"]:
-                # CT should reflect the current time as the process is executing
-                current_ct = self.current_time + 1  # +1 because current_time increments after this method
+                current_ct = self.current_time + 1
                 process["ct"].setText(str(current_ct))
 
-            # Finalize CT, TAT, and WT when process completes
             if executed_time >= total_bt and not process["completed"]:
                 self.update_process_on_completion(process, pid, total_bt)
 
     def update_gantt_chart(self):
-        """Update the Gantt chart based on the current execution time."""
         self.current_timeline = []
         for pid, start, end in self.timeline:
             if start <= self.current_time:
-                # Cap the end time at current_time + 1 for the current segment
                 effective_end = min(end, self.current_time + 1)
                 self.current_timeline.append((pid, start, effective_end))
             if end <= self.current_time + 1:
-                continue  # Skip fully completed segments if needed
+                continue
 
         self.gantt_widget.timeline = self.current_timeline
         self.gantt_widget.max_time = self.max_time
         self.gantt_widget.update()
 
     def update_execution(self):
-        """Update the simulation state for the current time step."""
         if self.check_simulation_completion():
             return
 
@@ -539,8 +574,8 @@ class InnerWindow(QMainWindow):
             self.cpu_label.setText(" Idle ")
 
         self.update_ready_queue(current_pid)
-        self.update_process_status()  # Updates status bar, CT (dynamically), TAT, WT
-        self.update_gantt_chart()     # Updates Gantt chart
+        self.update_process_status()
+        self.update_gantt_chart()
 
         self.current_time += 1
 
@@ -778,7 +813,6 @@ class CPUScheduler(QMainWindow):
         is_preemptive = self.newComboBox.currentText() == "Preemptive" if self.newComboBox else False
         time_quantum = self.timeQuantumSpinBox.value() if self.timeQuantumSpinBox else 2
 
-        # Map algorithm name to class and about text
         algorithm_map = {
             "First Come First Serve (FCFS)": (FCFS, FCFS.about),
             "Shortest Job First (SJF)": (
@@ -795,22 +829,21 @@ class CPUScheduler(QMainWindow):
         algo_class, about_text = algorithm_map[selected_algorithm]
         title = f"About {selected_algorithm}"
 
-        # Create and style the popup
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
         msg.setText(about_text)
         msg.setStandardButtons(QMessageBox.Ok)
         msg.setStyleSheet("""
             QMessageBox {
-                background-color: #00008B;  /* Blue background */
+                background-color: #00008B;
             }
             QMessageBox QLabel {
-                color: white;  /* White text */
+                color: white;
                 font-size: 12pt;
             }
             QMessageBox QPushButton {
                 color: white;
-                background-color: #1976D2;  /* Darker blue button */
+                background-color: #1976D2;
                 border: 1px solid #0D47A1;
                 padding: 5px;
                 min-width: 80px;
@@ -821,10 +854,8 @@ class CPUScheduler(QMainWindow):
             }
         """)
         
-        # Show popup and wait for OK
         msg.exec_()
 
-        # Proceed to InnerWindow
         self.inner_window = InnerWindow(selected_algorithm, process_quantity, is_preemptive, time_quantum)
         self.inner_window.show()
         self.close()
