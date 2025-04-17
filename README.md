@@ -9,6 +9,7 @@ A PyQt5-based application to simulate CPU scheduling algorithms, including First
 - Displays CPU and Ready Queue states during execution.
 - Calculates and displays Completion Time (CT), Turnaround Time (TAT), and Waiting Time (WT) for each process.
 - Provides average TAT and WT for the entire simulation.
+- Pause/Resume Simulation on realTime
 
 ## Requirements
 
